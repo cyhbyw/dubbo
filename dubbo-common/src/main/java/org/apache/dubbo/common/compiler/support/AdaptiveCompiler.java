@@ -28,6 +28,12 @@ public class AdaptiveCompiler implements Compiler {
 
     private static volatile String DEFAULT_COMPILER;
 
+    /**
+     * 会在ApplicationConfig中调用
+     * 也就是解析 <dubbo:application compiler="jdk"/> 标签，获取对应的值并初始化
+     * 如果没有标签设置，则使用@SPI("javassist")中的设置，即JavassistCompiler
+     * @param compiler
+     */
     public static void setDefaultCompiler(String compiler) {
         DEFAULT_COMPILER = compiler;
     }

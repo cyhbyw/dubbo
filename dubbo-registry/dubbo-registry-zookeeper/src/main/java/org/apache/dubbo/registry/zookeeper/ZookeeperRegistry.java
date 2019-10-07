@@ -16,6 +16,12 @@
  */
 package org.apache.dubbo.registry.zookeeper;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
 import org.apache.dubbo.common.Constants;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.URLBuilder;
@@ -31,12 +37,6 @@ import org.apache.dubbo.remoting.zookeeper.StateListener;
 import org.apache.dubbo.remoting.zookeeper.ZookeeperClient;
 import org.apache.dubbo.remoting.zookeeper.ZookeeperTransporter;
 import org.apache.dubbo.rpc.RpcException;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 /**
  * ZookeeperRegistry
@@ -116,18 +116,24 @@ public class ZookeeperRegistry extends FailbackRegistry {
     @Override
     public void doSubscribe(final URL url, final NotifyListener listener) {
         try {
+            // 订阅所有数据，通常是Admin
             if (Constants.ANY_VALUE.equals(url.getServiceInterface())) {
                 String root = toRootPath();
                 ConcurrentMap<NotifyListener, ChildListener> listeners = zkListeners.get(url);
                 if (listeners == null) {
+                    // 缓存中没有
                     zkListeners.putIfAbsent(url, new ConcurrentHashMap<>());
                     listeners = zkListeners.get(url);
                 }
                 ChildListener zkListener = listeners.get(listener);
                 if (zkListener == null) {
+                    // 说明是第一次，新建之
+                    // 内部类的方法，不会立即执行，只会在触发变更通知时执行
                     listeners.putIfAbsent(listener, (parentPath, currentChilds) -> {
+                        // 如果子节点有变化则会接到通知，遍历所有子节点
                         for (String child : currentChilds) {
                             child = URL.decode(child);
+                            // 如果存在子节点还未被订阅，说明是新的节点，订阅之
                             if (!anyServices.contains(child)) {
                                 anyServices.add(child);
                                 subscribe(url.setPath(child).addParameters(Constants.INTERFACE_KEY, child,
@@ -137,18 +143,23 @@ public class ZookeeperRegistry extends FailbackRegistry {
                     });
                     zkListener = listeners.get(listener);
                 }
+                // 创建持久节点，接下来订阅持久节点的直接子节点
                 zkClient.create(root, false);
                 List<String> services = zkClient.addChildListener(root, zkListener);
                 if (CollectionUtils.isNotEmpty(services)) {
+                    // 遍历所有子节点进行订阅
                     for (String service : services) {
                         service = URL.decode(service);
                         anyServices.add(service);
+                        // 增加当前节点的订阅，并且会返回该节点下所有子节点列表
                         subscribe(url.setPath(service).addParameters(Constants.INTERFACE_KEY, service,
                                 Constants.CHECK_KEY, String.valueOf(false)), listener);
                     }
                 }
             } else {
+                // 普通Consumer的订阅
                 List<URL> urls = new ArrayList<>();
+                // 根据URL的类别，获取一组要订阅的路径
                 for (String path : toCategoriesPath(url)) {
                     ConcurrentMap<NotifyListener, ChildListener> listeners = zkListeners.get(url);
                     if (listeners == null) {
@@ -157,15 +168,18 @@ public class ZookeeperRegistry extends FailbackRegistry {
                     }
                     ChildListener zkListener = listeners.get(listener);
                     if (zkListener == null) {
-                        listeners.putIfAbsent(listener, (parentPath, currentChilds) -> ZookeeperRegistry.this.notify(url, listener, toUrlsWithEmpty(url, parentPath, currentChilds)));
+                        listeners.putIfAbsent(listener, (parentPath, currentChilds) -> ZookeeperRegistry.this
+                                .notify(url, listener, toUrlsWithEmpty(url, parentPath, currentChilds)));
                         zkListener = listeners.get(listener);
                     }
                     zkClient.create(path, false);
+                    // 订阅，返回该节点下的子路径并缓存
                     List<String> children = zkClient.addChildListener(path, zkListener);
                     if (children != null) {
                         urls.addAll(toUrlsWithEmpty(url, path, children));
                     }
                 }
+                // 回调NotifyListener，更新本地缓存信息
                 notify(url, listener, urls);
             }
         } catch (Throwable e) {

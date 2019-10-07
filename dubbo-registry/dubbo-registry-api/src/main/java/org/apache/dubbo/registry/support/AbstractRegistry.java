@@ -16,18 +16,6 @@
  */
 package org.apache.dubbo.registry.support;
 
-import org.apache.dubbo.common.Constants;
-import org.apache.dubbo.common.URL;
-import org.apache.dubbo.common.logger.Logger;
-import org.apache.dubbo.common.logger.LoggerFactory;
-import org.apache.dubbo.common.utils.CollectionUtils;
-import org.apache.dubbo.common.utils.ConcurrentHashSet;
-import org.apache.dubbo.common.utils.ConfigUtils;
-import org.apache.dubbo.common.utils.NamedThreadFactory;
-import org.apache.dubbo.common.utils.UrlUtils;
-import org.apache.dubbo.registry.NotifyListener;
-import org.apache.dubbo.registry.Registry;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -51,29 +39,55 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.apache.dubbo.common.Constants;
+import org.apache.dubbo.common.URL;
+import org.apache.dubbo.common.logger.Logger;
+import org.apache.dubbo.common.logger.LoggerFactory;
+import org.apache.dubbo.common.utils.CollectionUtils;
+import org.apache.dubbo.common.utils.ConcurrentHashSet;
+import org.apache.dubbo.common.utils.ConfigUtils;
+import org.apache.dubbo.common.utils.NamedThreadFactory;
+import org.apache.dubbo.common.utils.UrlUtils;
+import org.apache.dubbo.registry.NotifyListener;
+import org.apache.dubbo.registry.Registry;
+
 /**
  * AbstractRegistry. (SPI, Prototype, ThreadSafe)
  */
 public abstract class AbstractRegistry implements Registry {
 
-    // URL address separator, used in file cache, service provider URL separation
+    /** URL address separator, used in file cache, service provider URL separation */
     private static final char URL_SEPARATOR = ' ';
-    // URL address separated regular expression for parsing the service provider URL list in the file cache
+    /** URL address separated regular expression for parsing the service provider URL list in the file cache */
     private static final String URL_SPLIT = "\\s+";
-    // Log output
+    /** Log output */
     protected final Logger logger = LoggerFactory.getLogger(getClass());
-    // Local disk cache, where the special key value.registries records the list of registry centers, and the others are the list of notified service providers
+    /**
+     * Local disk cache
+     * where the special key value.registries records the list of registry centers,
+     * and the others are the list of notified service providers
+     * 保存所有提供者的URL
+     */
     private final Properties properties = new Properties();
-    // File cache timing writing
-    private final ExecutorService registryCacheExecutor = Executors.newFixedThreadPool(1, new NamedThreadFactory("DubboSaveRegistryCache", true));
-    // Is it synchronized to save the file
+    /** File cache timing writing */
+    private final ExecutorService registryCacheExecutor =
+            Executors.newFixedThreadPool(1, new NamedThreadFactory("DubboSaveRegistryCache", true));
+    /** Is it synchronized to save the file */
     private final boolean syncSaveFile;
     private final AtomicLong lastCacheChanged = new AtomicLong();
     private final Set<URL> registered = new ConcurrentHashSet<>();
     private final ConcurrentMap<URL, Set<NotifyListener>> subscribed = new ConcurrentHashMap<>();
+    /**
+     * 内存中的服务缓存对象
+     * 外层Key是消费者的URL
+     * 内层Key是分类（Provider、Consumer、Routers、Configurators），Value是对应的服务列表
+     */
     private final ConcurrentMap<URL, Map<String, List<URL>>> notified = new ConcurrentHashMap<>();
     private URL registryUrl;
-    // Local disk cache file
+    /**
+     * Local disk cache file
+     * 磁盘文件服务缓存对象
+     */
     private File file;
 
     public AbstractRegistry(URL url) {
@@ -183,6 +197,9 @@ public abstract class AbstractRegistry implements Registry {
         }
     }
 
+    /**
+     * 加载磁盘文件中缓存的数据
+     */
     private void loadProperties() {
         if (file != null && file.exists()) {
             InputStream in = null;
@@ -371,8 +388,7 @@ public abstract class AbstractRegistry implements Registry {
         if (listener == null) {
             throw new IllegalArgumentException("notify listener == null");
         }
-        if ((CollectionUtils.isEmpty(urls))
-                && !Constants.ANY_VALUE.equals(url.getServiceInterface())) {
+        if ((CollectionUtils.isEmpty(urls)) && !Constants.ANY_VALUE.equals(url.getServiceInterface())) {
             logger.warn("Ignore empty notify urls for subscribe url " + url);
             return;
         }
@@ -403,6 +419,9 @@ public abstract class AbstractRegistry implements Registry {
         }
     }
 
+    /**
+     * 更新内存缓存和文件
+     */
     private void saveProperties(URL url) {
         if (file == null) {
             return;
