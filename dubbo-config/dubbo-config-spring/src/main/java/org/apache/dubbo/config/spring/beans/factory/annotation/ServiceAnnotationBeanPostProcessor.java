@@ -97,10 +97,10 @@ public class ServiceAnnotationBeanPostProcessor implements BeanDefinitionRegistr
 
     @Override
     public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
-
+        // 获取用户注解配置的包扫描路径
         Set<String> resolvedPackagesToScan = resolvePackagesToScan(packagesToScan);
-
         if (!CollectionUtils.isEmpty(resolvedPackagesToScan)) {
+            // 触发ServiceBean定义和注入
             registerServiceBeans(resolvedPackagesToScan, registry);
         } else {
             if (logger.isWarnEnabled()) {
@@ -118,48 +118,34 @@ public class ServiceAnnotationBeanPostProcessor implements BeanDefinitionRegistr
      * @param registry       {@link BeanDefinitionRegistry}
      */
     private void registerServiceBeans(Set<String> packagesToScan, BeanDefinitionRegistry registry) {
-
-        DubboClassPathBeanDefinitionScanner scanner =
-                new DubboClassPathBeanDefinitionScanner(registry, environment, resourceLoader);
-
+        DubboClassPathBeanDefinitionScanner scanner = new DubboClassPathBeanDefinitionScanner(registry, environment, resourceLoader);
         BeanNameGenerator beanNameGenerator = resolveBeanNameGenerator(registry);
-
         scanner.setBeanNameGenerator(beanNameGenerator);
-
+        // 指定扫描Dubbo的注解@Service
         scanner.addIncludeFilter(new AnnotationTypeFilter(Service.class));
-
         for (String packageToScan : packagesToScan) {
-
-            // Registers @Service Bean first
+            // 将@Service作为不同Bean注入容器
             scanner.scan(packageToScan);
-
             // Finds all BeanDefinitionHolders of @Service whether @ComponentScan scans or not.
-            Set<BeanDefinitionHolder> beanDefinitionHolders =
-                    findServiceBeanDefinitionHolders(scanner, packageToScan, registry, beanNameGenerator);
-
+            // 对扫描有服务创建BeanDefinitionHolder，用于生成ServiceBean定义
+            Set<BeanDefinitionHolder> beanDefinitionHolders = findServiceBeanDefinitionHolders(scanner, packageToScan, registry, beanNameGenerator);
             if (!CollectionUtils.isEmpty(beanDefinitionHolders)) {
-
                 for (BeanDefinitionHolder beanDefinitionHolder : beanDefinitionHolders) {
+                    // 注册ServiceBean定义并做数据绑定和解析
                     registerServiceBean(beanDefinitionHolder, registry, scanner);
                 }
 
                 if (logger.isInfoEnabled()) {
                     logger.info(beanDefinitionHolders.size() + " annotated Dubbo's @Service Components { " +
-                            beanDefinitionHolders +
-                            " } were scanned under package[" + packageToScan + "]");
+                            beanDefinitionHolders + " } were scanned under package[" + packageToScan + "]");
                 }
 
             } else {
-
                 if (logger.isWarnEnabled()) {
-                    logger.warn("No Spring Bean annotating Dubbo's @Service was found under package["
-                            + packageToScan + "]");
+                    logger.warn("No Spring Bean annotating Dubbo's @Service was found under package[" + packageToScan + "]");
                 }
-
             }
-
         }
-
     }
 
     /**
