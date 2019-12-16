@@ -172,18 +172,25 @@ public class DubboCodec extends ExchangeCodec {
     protected void encodeRequestData(Channel channel, ObjectOutput out, Object data, String version) throws IOException {
         RpcInvocation inv = (RpcInvocation) data;
 
+        // 写入框架版本
         out.writeUTF(version);
+        // 写入调用的接口
         out.writeUTF(inv.getAttachment(Constants.PATH_KEY));
+        // 写入接口指定的版本，默认为 0.0.0
         out.writeUTF(inv.getAttachment(Constants.VERSION_KEY));
 
+        // 写入方法名称
         out.writeUTF(inv.getMethodName());
+        // 写入方法参数类型
         out.writeUTF(ReflectUtils.getDesc(inv.getParameterTypes()));
         Object[] args = inv.getArguments();
         if (args != null) {
+            // 依次写入方法参数值
             for (int i = 0; i < args.length; i++) {
                 out.writeObject(encodeInvocationArgument(channel, inv, i));
             }
         }
+        // 写入隐式参数，如timeout, group
         out.writeObject(RpcUtils.getNecessaryAttachments(inv));
     }
 
@@ -191,22 +198,28 @@ public class DubboCodec extends ExchangeCodec {
     protected void encodeResponseData(Channel channel, ObjectOutput out, Object data, String version) throws IOException {
         Result result = (Result) data;
         // currently, the version value in Response records the version of Request
+        // 判断Consumer请求的版本是否支持Provider参数返回
         boolean attach = Version.isSupportResponseAttachment(version);
         Throwable th = result.getException();
         if (th == null) {
+            // 提取正常返回结果
             Object ret = result.getValue();
             if (ret == null) {
+                // 在编码结束前，先写一个字节标志
                 out.writeByte(attach ? RESPONSE_NULL_VALUE_WITH_ATTACHMENTS : RESPONSE_NULL_VALUE);
             } else {
+                // 分别写一个字节标志和调用结果
                 out.writeByte(attach ? RESPONSE_VALUE_WITH_ATTACHMENTS : RESPONSE_VALUE);
                 out.writeObject(ret);
             }
         } else {
+            // 标记调用抛出异常，并序列化异常
             out.writeByte(attach ? RESPONSE_WITH_EXCEPTION_WITH_ATTACHMENTS : RESPONSE_WITH_EXCEPTION);
             out.writeObject(th);
         }
 
         if (attach) {
+            // 记录Provider Dubbo版本，并返回Provider隐式参数
             // returns current version of Response to consumer side.
             result.getAttachments().put(Constants.DUBBO_VERSION_KEY, Version.getProtocolVersion());
             out.writeObject(result.getAttachments());

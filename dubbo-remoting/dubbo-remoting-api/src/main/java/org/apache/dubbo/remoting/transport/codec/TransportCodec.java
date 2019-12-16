@@ -32,6 +32,7 @@ import java.io.OutputStream;
 
 /**
  * TransportCodec
+ * 主要抽象编解码实现，自动调用序列化、反序列化和自动Cleanup流
  */
 public class TransportCodec extends AbstractCodec {
 
