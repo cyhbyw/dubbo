@@ -124,6 +124,7 @@ public class DecodeableRpcResult extends RpcResult implements Codec, Decodeable 
 
     private void handleValue(ObjectInput in) throws IOException {
         try {
+            // 读取方法调用返回类型
             Type[] returnTypes = RpcUtils.getReturnTypes(invocation);
             Object value = null;
             if (ArrayUtils.isEmpty(returnTypes)) {
@@ -145,6 +146,7 @@ public class DecodeableRpcResult extends RpcResult implements Codec, Decodeable 
             if (!(obj instanceof Throwable)) {
                 throw new IOException("Response data error, expect Throwable, but get " + obj);
             }
+            // 保存读取的返回值异常结果
             setException((Throwable) obj);
         } catch (ClassNotFoundException e) {
             rethrow(e);
@@ -153,6 +155,7 @@ public class DecodeableRpcResult extends RpcResult implements Codec, Decodeable 
 
     private void handleAttachment(ObjectInput in) throws IOException {
         try {
+            // 读取返回值为Null并且有隐式参数
             setAttachments((Map<String, String>) in.readObject(Map.class));
         } catch (ClassNotFoundException e) {
             rethrow(e);

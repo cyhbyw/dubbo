@@ -108,7 +108,7 @@ public class DubboCodec extends ExchangeCodec {
             }
             return res;
         } else {
-            // decode request.
+            // decode request. 请求标志被设置，创建Request对象
             Request req = new Request(id);
             req.setVersion(Version.getProtocolVersion());
             req.setTwoWay((flag & FLAG_TWOWAY) != 0);
@@ -124,23 +124,23 @@ public class DubboCodec extends ExchangeCodec {
                     data = decodeEventData(channel, in);
                 } else {
                     DecodeableRpcInvocation inv;
-                    if (channel.getUrl().getParameter(
-                            Constants.DECODE_IN_IO_THREAD_KEY,
-                            Constants.DEFAULT_DECODE_IN_IO_THREAD)) {
+                    if (channel.getUrl().getParameter(Constants.DECODE_IN_IO_THREAD_KEY, Constants.DEFAULT_DECODE_IN_IO_THREAD)) {
                         inv = new DecodeableRpcInvocation(channel, req, is, proto);
+                        // 在IO线程中直接解码
                         inv.decode();
                     } else {
-                        inv = new DecodeableRpcInvocation(channel, req,
-                                new UnsafeByteArrayInputStream(readMessageData(is)), proto);
+                        // 交给Dubbo业务线程池解码
+                        inv = new DecodeableRpcInvocation(channel, req, new UnsafeByteArrayInputStream(readMessageData(is)), proto);
                     }
                     data = inv;
                 }
+                // 将RpcInvocation作为Request的数据域
                 req.setData(data);
             } catch (Throwable t) {
                 if (log.isWarnEnabled()) {
                     log.warn("Decode request failed: " + t.getMessage(), t);
                 }
-                // bad request
+                // bad request 解码失败：作标识、存储异常
                 req.setBroken(true);
                 req.setData(t);
             }

@@ -90,17 +90,22 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
         ObjectInput in = CodecSupport.getSerialization(channel.getUrl(), serializationType)
                 .deserialize(channel.getUrl(), input);
 
+        // 读取框架版本
         String dubboVersion = in.readUTF();
         request.setVersion(dubboVersion);
         setAttachment(Constants.DUBBO_VERSION_KEY, dubboVersion);
 
+        // 读取调用接口
         setAttachment(Constants.PATH_KEY, in.readUTF());
+        // 读取接口指定的版本，默认为 0.0.0
         setAttachment(Constants.VERSION_KEY, in.readUTF());
 
+        // 读取方法名称
         setMethodName(in.readUTF());
         try {
             Object[] args;
             Class<?>[] pts;
+            // 读取方法参数类型
             String desc = in.readUTF();
             if (desc.length() == 0) {
                 pts = DubboCodec.EMPTY_CLASS_ARRAY;
@@ -110,6 +115,7 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
                 args = new Object[pts.length];
                 for (int i = 0; i < args.length; i++) {
                     try {
+                        // 依次读取方法参数值
                         args[i] = in.readObject(pts[i]);
                     } catch (Exception e) {
                         if (log.isWarnEnabled()) {
@@ -120,6 +126,7 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
             }
             setParameterTypes(pts);
 
+            // 读取隐式参数
             Map<String, String> map = (Map<String, String>) in.readObject(Map.class);
             if (map != null && map.size() > 0) {
                 Map<String, String> attachment = getAttachments();
@@ -129,7 +136,7 @@ public class DecodeableRpcInvocation extends RpcInvocation implements Codec, Dec
                 attachment.putAll(map);
                 setAttachments(attachment);
             }
-            //decode argument ,may be callback
+            // decode argument, may be callback 处理异步参数回调，如果有则在服务端创建Reference代理实例
             for (int i = 0; i < args.length; i++) {
                 args[i] = decodeInvocationArgument(channel, this, pts, i, args[i]);
             }
