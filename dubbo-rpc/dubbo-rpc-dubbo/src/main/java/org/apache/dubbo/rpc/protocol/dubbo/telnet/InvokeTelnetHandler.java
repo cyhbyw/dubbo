@@ -66,16 +66,21 @@ public class InvokeTelnetHandler implements TelnetHandler {
             return "Invalid parameters, format: service.method(args)";
         }
 
+        // 提取调用方法（由接口名、方法名组成）
         String method = message.substring(0, i).trim();
+        // 提取调用方法参数值
         String args = message.substring(i + 1, message.length() - 1).trim();
         i = method.lastIndexOf(".");
         if (i >= 0) {
+            // 提取方法前面的接口
             service = method.substring(0, i).trim();
+            // 提取方法名称
             method = method.substring(i + 1).trim();
         }
 
         List<Object> list;
         try {
+            // 将参数JSON串转成JSON对象
             list = JSON.parseArray("[" + args + "]", Object.class);
         } catch (Throwable t) {
             return "Invalid json argument, cause: " + t.getMessage();
@@ -121,11 +126,13 @@ public class InvokeTelnetHandler implements TelnetHandler {
         if (selectedProvider != null) {
             if (invokeMethod != null) {
                 try {
+                    // 将JSON参数值转换成Java对象值
                     Object[] array = realize(list.toArray(), invokeMethod.getParameterTypes(),
                             invokeMethod.getGenericParameterTypes());
                     long start = System.currentTimeMillis();
                     RpcResult result = new RpcResult();
                     try {
+                        // 根据查找到的Invoker、构造RpcInvocation进行方法调用
                         Object o = invokeMethod.invoke(selectedProvider.getServiceInstance(), array);
                         result.setValue(o);
                     } catch (Throwable t) {
