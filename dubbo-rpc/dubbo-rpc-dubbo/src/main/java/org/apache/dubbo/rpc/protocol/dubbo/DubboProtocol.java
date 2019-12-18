@@ -16,6 +16,18 @@
  */
 package org.apache.dubbo.rpc.protocol.dubbo;
 
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+
 import org.apache.dubbo.common.Constants;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.URLBuilder;
@@ -48,18 +60,6 @@ import org.apache.dubbo.rpc.RpcException;
 import org.apache.dubbo.rpc.RpcInvocation;
 import org.apache.dubbo.rpc.protocol.AbstractProtocol;
 
-import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-
 /**
  * dubbo protocol support.
  */
@@ -87,6 +87,9 @@ public class DubboProtocol extends AbstractProtocol {
      */
     private final ConcurrentMap<String, String> stubServiceMethodsMap = new ConcurrentHashMap<>();
 
+    /**
+     * 完成服务提供方Invoker实例的查找并进行服务的真实调用
+     */
     private ExchangeHandler requestHandler = new ExchangeHandlerAdapter() {
 
         @Override
@@ -99,6 +102,7 @@ public class DubboProtocol extends AbstractProtocol {
             }
 
             Invocation inv = (Invocation) message;
+            // 查找Invocation关联的Invoker
             Invoker<?> invoker = getInvoker(channel, inv);
             // need to consider backward-compatibility if it's a callback
             if (Boolean.TRUE.toString().equals(inv.getAttachments().get(IS_CALLBACK_SERVICE_INVOKE))) {
@@ -125,6 +129,7 @@ public class DubboProtocol extends AbstractProtocol {
             }
             RpcContext rpcContext = RpcContext.getContext();
             rpcContext.setRemoteAddress(channel.getRemoteAddress());
+            // 调用业务方具体方法
             Result result = invoker.invoke(inv);
 
             if (result instanceof AsyncRpcResult) {
@@ -222,30 +227,33 @@ public class DubboProtocol extends AbstractProtocol {
     }
 
     Invoker<?> getInvoker(Channel channel, Invocation inv) throws RemotingException {
-        boolean isCallBackServiceInvoke = false;
-        boolean isStubServiceInvoke = false;
+        // 获取服务暴露协议的端口
         int port = channel.getLocalAddress().getPort();
+        // 获取调用传递的接口
         String path = inv.getAttachments().get(Constants.PATH_KEY);
 
         // if it's callback service on client side
-        isStubServiceInvoke = Boolean.TRUE.toString().equals(inv.getAttachments().get(Constants.STUB_EVENT_KEY));
+        boolean isStubServiceInvoke = Boolean.TRUE.toString().equals(inv.getAttachments().get(Constants.STUB_EVENT_KEY));
         if (isStubServiceInvoke) {
             port = channel.getRemoteAddress().getPort();
         }
 
         //callback
-        isCallBackServiceInvoke = isClientSide(channel) && !isStubServiceInvoke;
+        boolean isCallBackServiceInvoke = isClientSide(channel) && !isStubServiceInvoke;
         if (isCallBackServiceInvoke) {
             path += "." + inv.getAttachments().get(Constants.CALLBACK_SERVICE_KEY);
             inv.getAttachments().put(IS_CALLBACK_SERVICE_INVOKE, Boolean.TRUE.toString());
         }
 
+        // 根据：端口、接口名、接口分组和接口版本构造唯一Key
         String serviceKey = serviceKey(port, path, inv.getAttachments().get(Constants.VERSION_KEY), inv.getAttachments().get(Constants.GROUP_KEY));
+        // 从HashMap中获取Exporter
         DubboExporter<?> exporter = (DubboExporter<?>) exporterMap.get(serviceKey);
 
         if (exporter == null) {
-            throw new RemotingException(channel, "Not found exported service: " + serviceKey + " in " + exporterMap.keySet() + ", may be version or group mismatch " +
-                    ", channel: consumer: " + channel.getRemoteAddress() + " --> provider: " + channel.getLocalAddress() + ", message:" + inv);
+            throw new RemotingException(channel, "Not found exported service: " + serviceKey + " in "
+                    + exporterMap.keySet() + ", may be version or group mismatch " + ", channel: consumer: "
+                    + channel.getRemoteAddress() + " --> provider: " + channel.getLocalAddress() + ", message:" + inv);
         }
 
         return exporter.getInvoker();

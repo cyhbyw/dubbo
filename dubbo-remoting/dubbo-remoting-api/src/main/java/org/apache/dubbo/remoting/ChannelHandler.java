@@ -29,21 +29,21 @@ import org.apache.dubbo.common.extension.SPI;
 public interface ChannelHandler {
 
     /**
-     * on channel connected.
+     * on channel connected. Channel已经被创建
      *
      * @param channel channel.
      */
     void connected(Channel channel) throws RemotingException;
 
     /**
-     * on channel disconnected.
+     * on channel disconnected. Channel已经被断开
      *
      * @param channel channel.
      */
     void disconnected(Channel channel) throws RemotingException;
 
     /**
-     * on message sent.
+     * on message sent. 消息被发送
      *
      * @param channel channel.
      * @param message message.
@@ -51,7 +51,7 @@ public interface ChannelHandler {
     void sent(Channel channel, Object message) throws RemotingException;
 
     /**
-     * on message received.
+     * on message received. 消息被接收
      *
      * @param channel channel.
      * @param message message.
@@ -59,7 +59,7 @@ public interface ChannelHandler {
     void received(Channel channel, Object message) throws RemotingException;
 
     /**
-     * on exception caught.
+     * on exception caught. 捕获到异常
      *
      * @param channel   channel.
      * @param exception exception.
