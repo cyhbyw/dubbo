@@ -80,8 +80,10 @@ public abstract class AbstractTimerTask implements TimerTask {
     @Override
     public void run(Timeout timeout) throws Exception {
         Collection<Channel> c = channelProvider.getChannels();
+        // 遍历所有Channel
         for (Channel channel : c) {
             if (channel.isClosed()) {
+                // 忽略关闭的Channel
                 continue;
             }
             doTask(channel);
