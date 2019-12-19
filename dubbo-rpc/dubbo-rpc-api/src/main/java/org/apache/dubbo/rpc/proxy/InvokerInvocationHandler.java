@@ -16,21 +16,19 @@
  */
 package org.apache.dubbo.rpc.proxy;
 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+
 import org.apache.dubbo.common.Constants;
-import org.apache.dubbo.common.logger.Logger;
-import org.apache.dubbo.common.logger.LoggerFactory;
 import org.apache.dubbo.rpc.Invoker;
 import org.apache.dubbo.rpc.RpcInvocation;
 import org.apache.dubbo.rpc.support.RpcUtils;
-
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Method;
 
 /**
  * InvokerHandler
  */
 public class InvokerInvocationHandler implements InvocationHandler {
-    private static final Logger logger = LoggerFactory.getLogger(InvokerInvocationHandler.class);
+    /** InvokerInvocationHandler 中的 invoker 成员变量类型为 MockClusterInvoker */
     private final Invoker<?> invoker;
 
     public InvokerInvocationHandler(Invoker<?> handler) {
@@ -41,9 +39,12 @@ public class InvokerInvocationHandler implements InvocationHandler {
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         String methodName = method.getName();
         Class<?>[] parameterTypes = method.getParameterTypes();
+        // 拦截定义在 Object 类中的方法（未被子类重写），比如 wait/notify
         if (method.getDeclaringClass() == Object.class) {
             return method.invoke(invoker, args);
         }
+
+        // 如果 toString、hashCode 和 equals 等方法被子类重写了，这里也直接调用
         if ("toString".equals(methodName) && parameterTypes.length == 0) {
             return invoker.toString();
         }
@@ -54,6 +55,7 @@ public class InvokerInvocationHandler implements InvocationHandler {
             return invoker.equals(args[0]);
         }
 
+        // 将 method 和 args 封装到 RpcInvocation 中，并执行后续的调用
         return invoker.invoke(createInvocation(method, args)).recreate();
     }
 
