@@ -16,6 +16,10 @@
  */
 package org.apache.dubbo.rpc.cluster.support;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.dubbo.common.Constants;
 import org.apache.dubbo.common.logger.Logger;
 import org.apache.dubbo.common.logger.LoggerFactory;
@@ -31,10 +35,6 @@ import org.apache.dubbo.rpc.RpcException;
 import org.apache.dubbo.rpc.RpcResult;
 import org.apache.dubbo.rpc.cluster.Directory;
 import org.apache.dubbo.rpc.cluster.LoadBalance;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * When fails, record failure requests and schedule for retry on a regular interval.
@@ -73,10 +73,8 @@ public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
         if (failTimer == null) {
             synchronized (this) {
                 if (failTimer == null) {
-                    failTimer = new HashedWheelTimer(
-                            new NamedThreadFactory("failback-cluster-timer", true),
-                            1,
-                            TimeUnit.SECONDS, 32, failbackTasks);
+                    failTimer = new HashedWheelTimer(new NamedThreadFactory("failback-cluster-timer", true),
+                            1, TimeUnit.SECONDS, 32, failbackTasks);
                 }
             }
         }
@@ -96,9 +94,11 @@ public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
             invoker = select(loadbalance, invocation, invokers, null);
             return invoker.invoke(invocation);
         } catch (Throwable e) {
-            logger.error("Failback to invoke method " + invocation.getMethodName() + ", wait for retry in background. Ignored exception: "
-                    + e.getMessage() + ", ", e);
+            logger.error("Failback to invoke method " + invocation.getMethodName()
+                    + ", wait for retry in background. Ignored exception: " + e.getMessage() + ", ", e);
+            // 失败，添加到重试任务中，5S后重试
             addFailed(loadbalance, invocation, invokers, invoker);
+            // 返回空的结果
             return new RpcResult(); // ignore
         }
     }

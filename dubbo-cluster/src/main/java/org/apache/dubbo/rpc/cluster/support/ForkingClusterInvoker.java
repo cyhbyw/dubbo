@@ -16,6 +16,15 @@
  */
 package org.apache.dubbo.rpc.cluster.support;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.apache.dubbo.common.Constants;
 import org.apache.dubbo.common.threadlocal.NamedInternalThreadFactory;
 import org.apache.dubbo.rpc.Invocation;
@@ -25,15 +34,6 @@ import org.apache.dubbo.rpc.RpcContext;
 import org.apache.dubbo.rpc.RpcException;
 import org.apache.dubbo.rpc.cluster.Directory;
 import org.apache.dubbo.rpc.cluster.LoadBalance;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Invoke a specific number of invokers concurrently, usually used for demanding real-time operations, but need to waste more service resources.
@@ -97,11 +97,15 @@ public class ForkingClusterInvoker<T> extends AbstractClusterInvoker<T> {
                 Object ret = ref.poll(timeout, TimeUnit.MILLISECONDS);
                 if (ret instanceof Throwable) {
                     Throwable e = (Throwable) ret;
-                    throw new RpcException(e instanceof RpcException ? ((RpcException) e).getCode() : 0, "Failed to forking invoke provider " + selected + ", but no luck to perform the invocation. Last error is: " + e.getMessage(), e.getCause() != null ? e.getCause() : e);
+                    throw new RpcException(e instanceof RpcException ? ((RpcException) e).getCode() : 0,
+                            "Failed to forking invoke provider " + selected
+                                    + ", but no luck to perform the invocation. Last error is: " + e.getMessage(),
+                            e.getCause() != null ? e.getCause() : e);
                 }
                 return (Result) ret;
             } catch (InterruptedException e) {
-                throw new RpcException("Failed to forking invoke provider " + selected + ", but no luck to perform the invocation. Last error is: " + e.getMessage(), e);
+                throw new RpcException("Failed to forking invoke provider " + selected
+                        + ", but no luck to perform the invocation. Last error is: " + e.getMessage(), e);
             }
         } finally {
             // clear attachments which is binding to current thread.

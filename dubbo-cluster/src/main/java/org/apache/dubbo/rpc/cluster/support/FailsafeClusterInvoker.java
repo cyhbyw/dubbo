@@ -50,6 +50,7 @@ public class FailsafeClusterInvoker<T> extends AbstractClusterInvoker<T> {
             return invoker.invoke(invocation);
         } catch (Throwable e) {
             logger.error("Failsafe ignore exception: " + e.getMessage(), e);
+            // 捕获到异常后返回空的结果
             return new RpcResult(); // ignore
         }
     }

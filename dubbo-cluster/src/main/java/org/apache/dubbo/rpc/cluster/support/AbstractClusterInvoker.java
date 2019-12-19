@@ -42,6 +42,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * AbstractClusterInvoker
+ * 抽象类
+ * 封装了通用的模板逻辑，如获取服务列表、负载均衡、调用服务提供者等
+ * 预留了一个 doInvoke() 方法需要子类实现
  */
 public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
 
