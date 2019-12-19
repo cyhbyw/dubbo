@@ -246,8 +246,10 @@ public class DubboProtocol extends AbstractProtocol {
         }
 
         // 根据：端口、接口名、接口分组和接口版本构造唯一Key
+        // e.g. dubbo/com.alibaba.dubbo.demo.DemoService:1.0.0:20880
         String serviceKey = serviceKey(port, path, inv.getAttachments().get(Constants.VERSION_KEY), inv.getAttachments().get(Constants.GROUP_KEY));
-        // 从HashMap中获取Exporter
+        // 从 exporterMap 查找与 serviceKey 相对应的 DubboExporter 对象，
+        // 服务导出过程中会将 <serviceKey, DubboExporter> 映射关系存储到 exporterMap 集合中
         DubboExporter<?> exporter = (DubboExporter<?>) exporterMap.get(serviceKey);
 
         if (exporter == null) {
@@ -256,6 +258,7 @@ public class DubboProtocol extends AbstractProtocol {
                     + channel.getRemoteAddress() + " --> provider: " + channel.getLocalAddress() + ", message:" + inv);
         }
 
+        // 获取 Invoker 对象，并返回
         return exporter.getInvoker();
     }
 
