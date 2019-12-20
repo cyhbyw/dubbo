@@ -16,6 +16,16 @@
  */
 package org.apache.dubbo.rpc.cluster.router.condition;
 
+import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import org.apache.dubbo.common.Constants;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.logger.Logger;
@@ -28,16 +38,6 @@ import org.apache.dubbo.rpc.Invocation;
 import org.apache.dubbo.rpc.Invoker;
 import org.apache.dubbo.rpc.RpcException;
 import org.apache.dubbo.rpc.cluster.router.AbstractRouter;
-
-import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * ConditionRouter
@@ -74,9 +74,11 @@ public class ConditionRouter extends AbstractRouter {
             }
             rule = rule.replace("consumer.", "").replace("provider.", "");
             int i = rule.indexOf("=>");
+            // 消费者匹配条件，调用parseRule()方法进行解析
             String whenRule = i < 0 ? null : rule.substring(0, i).trim();
+            Map<String, MatchPair> when = StringUtils.isBlank(whenRule) || "true".equals(whenRule) ? new HashMap<>() : parseRule(whenRule);
+            // 提供者地址列表的过滤条件，调用parseRule()方法进行解析
             String thenRule = i < 0 ? rule.trim() : rule.substring(i + 2).trim();
-            Map<String, MatchPair> when = StringUtils.isBlank(whenRule) || "true".equals(whenRule) ? new HashMap<String, MatchPair>() : parseRule(whenRule);
             Map<String, MatchPair> then = StringUtils.isBlank(thenRule) || "false".equals(thenRule) ? null : parseRule(thenRule);
             // NOTE: It should be determined on the business level whether the `When condition` can be empty or not.
             this.whenCondition = when;
@@ -86,9 +88,11 @@ public class ConditionRouter extends AbstractRouter {
         }
     }
 
-    private static Map<String, MatchPair> parseRule(String rule)
-            throws ParseException {
-        Map<String, MatchPair> condition = new HashMap<String, MatchPair>();
+    /**
+     * 核心是正则表达式
+     */
+    private static Map<String, MatchPair> parseRule(String rule) throws ParseException {
+        Map<String, MatchPair> condition = new HashMap<>();
         if (StringUtils.isBlank(rule)) {
             return condition;
         }
@@ -104,18 +108,16 @@ public class ConditionRouter extends AbstractRouter {
             if (StringUtils.isEmpty(separator)) {
                 pair = new MatchPair();
                 condition.put(content, pair);
-            }
-            // The KV part of the condition expression
-            else if ("&".equals(separator)) {
+            } else if ("&".equals(separator)) {
+                // The KV part of the condition expression
                 if (condition.get(content) == null) {
                     pair = new MatchPair();
                     condition.put(content, pair);
                 } else {
                     pair = condition.get(content);
                 }
-            }
-            // The Value in the KV part.
-            else if ("=".equals(separator)) {
+            } else if ("=".equals(separator)) {
+                // The Value in the KV part.
                 if (pair == null) {
                     throw new ParseException("Illegal route rule \""
                             + rule + "\", The error char '" + separator
@@ -125,9 +127,8 @@ public class ConditionRouter extends AbstractRouter {
 
                 values = pair.matches;
                 values.add(content);
-            }
-            // The Value in the KV part.
-            else if ("!=".equals(separator)) {
+            } else if ("!=".equals(separator)) {
+                // The Value in the KV part.
                 if (pair == null) {
                     throw new ParseException("Illegal route rule \""
                             + rule + "\", The error char '" + separator
@@ -137,9 +138,8 @@ public class ConditionRouter extends AbstractRouter {
 
                 values = pair.mismatches;
                 values.add(content);
-            }
-            // The Value in the KV part, if Value have more than one items.
-            else if (",".equals(separator)) { // Should be separated by ','
+            } else if (",".equals(separator)) { // Should be separated by ','
+                // The Value in the KV part, if Value have more than one items.
                 if (values == null || values.isEmpty()) {
                     throw new ParseException("Illegal route rule \""
                             + rule + "\", The error char '" + separator
@@ -157,8 +157,7 @@ public class ConditionRouter extends AbstractRouter {
     }
 
     @Override
-    public <T> List<Invoker<T>> route(List<Invoker<T>> invokers, URL url, Invocation invocation)
-            throws RpcException {
+    public <T> List<Invoker<T>> route(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
         if (!enabled) {
             return invokers;
         }
@@ -170,9 +169,10 @@ public class ConditionRouter extends AbstractRouter {
             if (!matchWhen(url, invocation)) {
                 return invokers;
             }
-            List<Invoker<T>> result = new ArrayList<Invoker<T>>();
+            List<Invoker<T>> result = new ArrayList<>();
             if (thenCondition == null) {
-                logger.warn("The current consumer in the service blacklist. consumer: " + NetUtils.getLocalHost() + ", service: " + url.getServiceKey());
+                logger.warn("The current consumer in the service blacklist. consumer: " + NetUtils.getLocalHost()
+                        + ", service: " + url.getServiceKey());
                 return result;
             }
             for (Invoker<T> invoker : invokers) {
@@ -183,11 +183,14 @@ public class ConditionRouter extends AbstractRouter {
             if (!result.isEmpty()) {
                 return result;
             } else if (force) {
-                logger.warn("The route result is empty and force execute. consumer: " + NetUtils.getLocalHost() + ", service: " + url.getServiceKey() + ", router: " + url.getParameterAndDecoded(Constants.RULE_KEY));
+                logger.warn("The route result is empty and force execute. consumer: " + NetUtils.getLocalHost()
+                        + ", service: " + url.getServiceKey() + ", router: "
+                        + url.getParameterAndDecoded(Constants.RULE_KEY));
                 return result;
             }
         } catch (Throwable t) {
-            logger.error("Failed to execute condition router rule: " + getUrl() + ", invokers: " + invokers + ", cause: " + t.getMessage(), t);
+            logger.error("Failed to execute condition router rule: " + getUrl() + ", invokers: " + invokers
+                    + ", cause: " + t.getMessage(), t);
         }
         return invokers;
     }
