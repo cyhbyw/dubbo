@@ -18,6 +18,9 @@ package org.apache.dubbo.common;
 
 /**
  * Node. (API/SPI, Prototype, ThreadSafe)
+ *
+ * Node 这个接口继承者比较多，像 Registry、Monitor、Invoker 等均继承了这个接口。
+ * 这个接口包含了一个获取配置信息的方法 getUrl，实现该接口的类可以向外提供配置信息
  */
 public interface Node {
 
