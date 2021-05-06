@@ -16,20 +16,24 @@
  */
 package org.apache.dubbo.demo.consumer;
 
+import org.apache.dubbo.common.logger.Logger;
+import org.apache.dubbo.common.logger.LoggerFactory;
 import org.apache.dubbo.demo.DemoService;
-
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-public class Application {
+public class DemoXmlConsumer {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DemoXmlConsumer.class);
+
     /**
-     * In order to make sure multicast registry works, need to specify '-Djava.net.preferIPv4Stack=true' before
-     * launch the application
+     * In order to make sure multicast registry works, need to specify '-Djava.net.preferIPv4Stack=true' before launch
+     * the application
      */
     public static void main(String[] args) {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("spring/dubbo-consumer.xml");
         context.start();
         DemoService demoService = context.getBean("demoService", DemoService.class);
         String hello = demoService.sayHello("world");
-        System.out.println("result: " + hello);
+        LOGGER.info("result: " + hello);
     }
 }
